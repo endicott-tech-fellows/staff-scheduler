@@ -1,2 +1,2 @@
 # staff-scheduler
-Program that allows to view when any staff member at Endicott is available or not.
+A program that allows you to view when any professor is teaching or not.
