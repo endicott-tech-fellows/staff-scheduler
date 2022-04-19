@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Staff Scheduler</title>
+        <link rel="stylesheet" type="text/css" href="css/main.css">
+    </head>
+
+    <body id="body">
+        <h1>Staff Scheduler</h1>
+        <h4 id="list">
+            <ul>
+                <li>First, fill in the parameters to obtain the course schedule</li>
+                <li>Then, select all professors names you'd like to meet with on the left</li>
+                <li>Then input a time frame (Must be a 15 minute interval. Times are from 8:00am-8:00pm)</li>
+                <li>Click "Generate Time Table" to get a breakdown of availability at those times</li>
+                <li>You can switch between the days of the week depending on when you'd like to meet.</li>
+                <li>Green indicates everybody can attend, yellow and orange indicate some can't make it while red indicates nobody can make it</li>
+            </ul>
+        </h4>
+        <label for="course-year">Semester-Year: </label>
+        <input type="text" id="course-year" placeholder="SP-2022">
+        <button id="generate-staff" onclick="findSchedule()">Find Course Schedule</button>
+
+        <label for="time-interval">Time frame:</label>
+        <input typee="text" id="time-interval" placeholder="1100-345">
+        <button id="scheduleButton" onclick="generateTimeTable()">Generate Time Table</button>
+
+        <br><br><br>
+
+        <div id="container" style="width: 200px; height:450px; overflow:scroll; display:inline-block;"></div>
+        
+        <div id="table-div">
+            <h2 id="table-day">Monday</h2>
+            <button id="go-left" onclick="goBack()">(----</button>
+            <button id="go-right" onclick="goForward()">----)</button>
+        </div>
+
+ 
+        <script>
+            var theUrl;                     //Holds the URL for the course schedule
+            var rawText;                    //Holds the entire data string of the course schedule
+            var professors = [];            //Holds every staff member object in the course schedule list
+            var profCount = 0;              //Number of professors
+            var boxes = [];                 //Storage for each HTML checkbox
+            var dayShown = "M";             //The current day shown in the table (M-F)
+            const characters = 321965;      //(Temporary) Holds value of the number of characters in SP22 to loop through 
+            const times = [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800];
+
+
+            var textContainer = document.getElementById('container');
+            
+            //Function finds the course dump of classes and builds the staff list
+            function findSchedule() {
+                textContainer
+                var courseScheduleDate = document.getElementById("course-year").value;
+                theUrl = "https://cars.endicott.edu/" + courseScheduleDate + "-DAY.html";
+                loadFile();
+                generateStaffSchedules(); 
+            }
+
+            //Code provided by: https://stackoverflow.com/questions/10642289/return-html-content-as-a-string-given-url-javascript-function
+            function loadFile() {
+                if (window.XMLHttpRequest) {
+                    xmlhttp=new XMLHttpRequest();
+                }
+                else {
+                    xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+                }
+
+                xmlhttp.onreadystatechange=function() {
+                    if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+                        rawText = xmlhttp.responseText;
+                    }
+                }
+                xmlhttp.open("GET", theUrl, false );
+                xmlhttp.send(); 
+            }
+
+            //Function will scan the entire text sheet and create the professor objects including the available times
+            function generateStaffSchedules() {
+                var tempName = "";
+                var timeStart = "";
+                var timeEnd = "";
+                var days = "";
+                var noTime = false;
+                //Generate the list of time slots for each day
+                
+                //Loop through all characters until we find a new class
+                for(let i = 0; i < characters; i++) {
+                    //We have a new class if we have a credit listed next to it and the time is not TBA
+                    if(rawText.charAt(i) == "." && rawText.charAt(i+1) == "0" && notTBA(rawText, i)) {
+                        i += 3; //We will go over 3 characters to get to the name
+                        var counter = i;
+
+                        //Grab Professor Name
+                        while(notANumber(rawText.charAt(counter))) {
+                            tempName += rawText.charAt(counter);
+                            counter++;  
+                        }
+                        tempName = tempName.trimEnd();
+                        
+                        if(tempName != "Staff") {
+                            //Keep the counter moving towards the time
+                            while(rawText.charAt(counter) != ":") {
+                                counter++;
+                            }
+
+                            //See if we have a 2 digit time
+                            if(rawText.charAt(counter-2) == "1" || rawText.charAt(counter-2) == "2") {
+                                counter = counter-2;
+                            }
+                            else {
+                                counter = counter - 1;
+                            }
+
+                            //Grab the start and end time of the class
+                            var isStartTime = true;
+                            while(rawText.charAt(counter) != "A" && rawText.charAt(counter) != "P") {
+                                if(rawText.charAt(counter) == "-") {
+                                    isStartTime = false;
+                                }
+                                else if(isStartTime == true && rawText.charAt(counter) != ":") {
+                                    timeStart += rawText.charAt(counter);
+                                }
+                                else if(rawText.charAt(counter) != ":") {
+                                    timeEnd += rawText.charAt(counter);
+                                }
+                                counter++;
+                            }
+                            timeStart = timeStart.trim();
+                            timeEnd = timeEnd.trim();
+                            timeStart = parseInt(timeStart);
+                            timeEnd = parseInt(timeEnd);
+
+                            //Move over to the days
+                            while(rawText.charAt(counter) != "-") {
+                                counter++;
+                            }
+
+                            //Go through M-SA and grab non dashes
+                            for(let j = 0; j < 6; j++) {
+                                if(rawText.charAt(counter) != "-") {
+                                    days += rawText.charAt(counter);
+                                }
+                                counter++;
+                            }
+                            
+                            //Figure out if this professor exists already
+                            var doesProfessorExist = false;
+                            for(let k = 0; k < professors.length; k++) {
+                                if(professors[k].profName === tempName) {
+                                    doesProfessorExist = true;
+                                    break;
+                                }
+                            }
+
+                            //Creates a new professor object
+                            var prof; 
+                            if(doesProfessorExist == false) {
+                                var newProfessor = {
+                                    profName: tempName, 
+                                    MTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800], 
+                                    TTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800], 
+                                    WTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800], 
+                                    THTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800], 
+                                    FTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
+                                    230, 245, 300, 315, 330, 345, 400, 415, 430, 445, 500, 515, 530, 545, 600, 615, 630, 645, 700, 715, 730, 745, 800]
+                                }
+                                professors[profCount] = newProfessor;
+                                profCount++;
+                                prof = newProfessor;
+                            }
+                            else {
+                                for(let p = 0; p < professors.length; p++) {
+                                    if(tempName === professors[p].profName) {
+                                        prof = professors[p];
+                                        break;
+                                    }
+                                }
+                            }
+                            
+
+                            //Parse through days listed and remove the specific times
+                            for(let l = 0; l < days.length; l++) {
+                                if(days.charAt(l) != "-") {
+                                    removeTimes(days.charAt(l), timeStart, timeEnd, prof);
+                                }
+                            }
+                        }
+                            //Reset all of our variables
+                            i = counter;
+                            tempName = "";
+                            timeStart = "";
+                            timeEnd = "";
+                            days = "";
+                    }
+                }
+                
+                //Create the on-screen displays of the professors
+                for(let w = 0; w < professors.length; w++) {
+                    //console.log(professors[w]);
+                    createGUIProfessor(professors[w]);
+                }
+            }
+
+            //Remove times from a specific day within a certain amount of time
+            function removeTimes(day, start, end, prof) {
+                var startingIndex;
+                var endingIndex;
+                var roundStartTime = true;
+                var roundEndTime = true;
+
+                //Verify that the time is here, otherwise we will have to round it
+                for(let c = 0; c < times.length; c++) {
+                    if(start == times[c]) {
+                        roundStartTime = false;
+                    }
+                    if(end == times[c]) {
+                        roundEndTime = false;
+                    }
+                }
+
+                //We will have to round, find the index that is the next highest up
+                if(roundStartTime) {
+                    //console.log("Prev start: " + start);
+                    for(let i = 0; i < times.length; i++) {
+                        if(start > times[i] && start < times[i+1]) {
+                            start = times[i];
+                            break;
+                        }
+                        //Edge case to solve since numbers aren't ordered
+                        else if(start == 1250) {
+                            start = 1245;
+                            break;
+                        }
+                    }
+                    //console.log("New start: " + start);
+                }
+
+                if(roundEndTime) {
+                    //console.log("Prev end: " + end);
+                    for(let i = 0; i < times.length; i++) {
+                        if(end > times[i] && end < times[i+1]) {
+                            end = times[i];
+                            break;
+                        }
+                        else if(end == 1250) {
+                            end = 1245;
+                            break;
+                        }
+                    }
+                    //console.log("New end: " + end);
+                }
+
+                if(day == "M") {
+                    for(let i = 0; i < prof.MTimes.length; i++) {
+                        if(prof.MTimes[i] == start) {
+                            startingIndex = i;
+                        }
+                        else if(prof.MTimes[i] == end) {
+                            endingIndex = i;
+                        }
+                    }
+                    prof.MTimes.splice(startingIndex, (endingIndex-startingIndex)+1);
+                }
+                if(day == "T") {
+                    for(let i = 0; i < prof.TTimes.length; i++) {
+                        if(prof.TTimes[i] == start) {
+                            startingIndex = i;
+                        }
+                        else if(prof.TTimes[i] == end) {
+                            endingIndex = i;
+                        }
+                    }
+                    prof.TTimes.splice(startingIndex, (endingIndex-startingIndex)+1);
+                }
+                if(day == "W") {
+                    for(let i = 0; i < prof.WTimes.length; i++) {
+                        if(prof.WTimes[i] == start) {
+                            startingIndex = i;
+                        }
+                        else if(prof.WTimes[i] == end) {
+                            endingIndex = i;
+                        }
+                    }
+                    prof.WTimes.splice(startingIndex, (endingIndex-startingIndex)+1);
+                }
+                if(day == "R") {
+                    for(let i = 0; i < prof.THTimes.length; i++) {
+                        if(prof.THTimes[i] == start) {
+                            startingIndex = i;
+                        }
+                        else if(prof.THTimes[i] == end) {
+                            endingIndex = i;
+                        }
+                    }
+                    prof.THTimes.splice(startingIndex, (endingIndex-startingIndex)+1);
+                }
+                if(day == "F") {
+                    for(let i = 0; i < prof.FTimes.length; i++) {
+                        if(prof.FTimes[i] == start) {
+                            startingIndex = i;
+                        }
+                        else if(prof.FTimes[i] == end) {
+                            endingIndex = i;
+                        }
+                    }
+                    prof.FTimes.splice(startingIndex, (endingIndex-startingIndex)+1);
+                }
+            }
+
+            //Figure out if the character in question is not a number or weird symbol
+            function notANumber(c) {
+                if(c != "1" && c != "2" && c != "3" && c != "4" && c != "5" && c != "6" && c != "7" && c != "8" && c !="9" && c !=" 0"
+                && c != ":") {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+
+            //Figure out if the time has TBA in it
+            function notTBA(text, c) {
+                while(text.charAt(c) != "-") {
+                    if(text.charAt(c) == "T") {
+                        c++;
+                        if(text.charAt(c) == "B") {
+                            c++;
+                            if(text.charAt(c) == "A") {
+                                return false;
+                            }
+                        }
+                    }
+                    c++;
+                }
+                return true;
+            }
+
+            //Creates a checkbox for professors 
+            function createGUIProfessor(staff) {
+                var input = document.createElement('input');
+                input.setAttribute('type', 'checkbox');
+                input.setAttribute('id', staff.profName);
+                input.setAttribute('width', '100%');
+                var label = document.createElement('label');
+                label.setAttribute('for', staff.profName);
+                var space = document.createElement('br');
+                label.appendChild(document.createTextNode(staff.profName));
+                textContainer.appendChild(input);
+                textContainer.appendChild(label);
+                textContainer.appendChild(space);
+                boxes[boxes.length] = input;
+            }
+
+            function generateTimeTable() {
+                if(document.getElementById("data-table") != null) {
+                    document.getElementById("data-table").remove();
+                }
+                //Find all checked boxes
+                var selectedStaffNames = [];
+                var staffObjects = [];
+                var counter = 0;
+
+                //First grab the names of the professors highlighted
+                for(let i = 0; i < profCount; i++) {
+                    if(boxes[i].checked) {
+                        selectedStaffNames[counter] = boxes[i].id;
+                        counter++;
+                    }
+                }
+
+                //After finding the names, specifically find the professor objects based off that
+                for(let i = 0; i < selectedStaffNames.length; i++) {
+                    for(let  j = 0; j < profCount; j++) {
+                        if(professors[j].profName == selectedStaffNames[i]) {
+                            staffObjects[staffObjects.length] = professors[j];
+                            break; 
+                        }
+                    }
+                }
+                var timeTable = document.createElement("table");
+                var timeFrame = document.getElementById("time-interval").value;
+                timeTable.setAttribute("id", "data-table");
+                document.getElementById('table-div').appendChild(timeTable);
+                var row1 = true;
+                var greenCount = 0;
+                var redCount = 0;
+
+                //Obtain the correct values of the time frame
+                var startFrame = "";
+                var endFrame = "";
+                var onEnd = false;
+                for(let i = 0; i < timeFrame.length; i++) {
+                    if(timeFrame.charAt(i) == "-") {
+                        onEnd = true;
+                    }
+                    else if(onEnd == false) {
+                        startFrame = startFrame + "" + timeFrame.charAt(i);
+                    }
+                    else {
+                        endFrame = endFrame + "" + timeFrame.charAt(i);
+                    }
+                }
+
+                var inFrame = false;
+                var rowH = timeTable.insertRow();
+                for(let i = 0; i < staffObjects.length + 1; i++) {
+                    var col = rowH.insertCell();
+                    if(i != staffObjects.length) {
+                        col.innerHTML = staffObjects[i].profName + " Schedule";
+                    }
+                    else {
+                        col.innerHTML = "Time Summary";
+                        col.setAttribute('id', 'staff-header');
+                    }
+                    col.setAttribute('class', 'staff-name');
+                }
+
+                //Go through the slots of each professor and build the table
+                for(let i = 0; i < times.length; i++) {
+                    var currTime = times[i].toString();
+                    if(inFrame == false && currTime == startFrame) {
+                        inFrame = true;
+                    }
+                    else if(inFrame && currTime == endFrame) {
+                        inFrame = false;
+                    }
+
+                    if(inFrame) {
+                        var row = timeTable.insertRow();
+                        for(let j = 0; j < staffObjects.length + 1; j++) {
+                            var col = row.insertCell();                            
+                            if(currTime.length > 3) {
+                                col.innerHTML = currTime.charAt(0) + currTime.charAt(1) + ":" + currTime.charAt(2) + currTime.charAt(3);
+                            }
+                            else {
+                                col.innerHTML = currTime.charAt(0) + ":" + currTime.charAt(1) + currTime.charAt(2);
+                            }
+
+                            if(j != staffObjects.length) {
+                                var isAvail = false;
+                                if(dayShown == "M") {
+                                    for(let k = 0; k < staffObjects[j].MTimes.length; k++) {
+                                        if(staffObjects[j].MTimes[k] == currTime) {
+                                            isAvail = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(dayShown == "T") {
+                                    for(let k = 0; k < staffObjects[j].TTimes.length; k++) {
+                                        if(staffObjects[j].TTimes[k] == currTime) {
+                                            isAvail = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(dayShown == "W") {
+                                    for(let k = 0; k < staffObjects[j].WTimes.length; k++) {
+                                        if(staffObjects[j].WTimes[k] == currTime) {
+                                            isAvail = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(dayShown == "H") {
+                                    for(let k = 0; k < staffObjects[j].THTimes.length; k++) {
+                                        if(staffObjects[j].THTimes[k] == currTime) {
+                                            isAvail = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(dayShown == "F") {
+                                    for(let k = 0; k < staffObjects[j].FTimes.length; k++) {
+                                        if(staffObjects[j].FTimes[k] == currTime) {
+                                            isAvail = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(isAvail) {
+                                    col.setAttribute('class', 'avail');
+                                    greenCount++;
+                                }
+                                else {
+                                    col.setAttribute('class', 'not-avail');
+                                    redCount++;
+                                }
+                            }
+                            //We are doing the row summary
+                            else if(j == staffObjects.length) {
+                                if(redCount == 0) { //If everyone can make it
+                                    col.setAttribute('class', 'green');
+                                }
+                                else if(redCount > 0 && redCount < 2) { //If only 1 person can't make it
+                                    col.setAttribute('class', 'yellow');
+                                }
+                                else if(greenCount > 0) {   //If the group of staff are split
+                                    col.setAttribute('class', 'orange');
+                                }
+                                else {  //If nobody can make it
+                                    col.setAttribute('class', 'red');
+                                }
+                                redCount = 0;
+                                greenCount = 0;
+                            }
+                        }
+                    }   
+                }
+            }
+
+            function goBack() {
+                var dayContainer = document.getElementById("table-day");
+                if(dayShown == "M") {
+                    dayShown = "F";
+                    dayContainer.innerHTML = "Friday";
+                }
+                else if(dayShown == "T") {
+                    dayShown = "M";
+                    dayContainer.innerHTML = "Monday";
+                }
+                else if(dayShown == "W") {
+                    dayShown = "T";
+                    dayContainer.innerHTML = "Tuesday";
+                }
+                else if(dayShown == "H") {
+                    dayShown = "W";
+                    dayContainer.innerHTML = "Wednesday";
+                }
+                else if(dayShown == "F") {
+                    dayShown = "H";
+                    dayContainer.innerHTML = "Thursday";
+                }
+                generateTimeTable();
+            }
+
+            function goForward() {
+                var dayContainer = document.getElementById("table-day");
+                if(dayShown == "M") {
+                    dayShown = "T";
+                    dayContainer.innerHTML = "Tuesday";
+                }
+                else if(dayShown == "T") {
+                    dayShown = "W";
+                    dayContainer.innerHTML = "Wednesday";
+
+                }
+                else if(dayShown == "W") {
+                    dayShown = "H"
+                    dayContainer.innerHTML = "Thursday";
+                }
+                else if(dayShown == "H") {
+                    dayShown = "F"
+                    dayContainer.innerHTML = "Friday";
+                }
+                else if(dayShown == "F") {
+                    dayShown = "M"
+                    dayContainer.innerHTML = "Monday";
+                }
+                generateTimeTable();
+            }
+            //Put more emphasis in summary
+        </script>
+    </body>
+</html>
+
