@@ -156,7 +156,8 @@
                             }
 
                             //Creates a new professor object
-                            var prof; 
+                            var prof;
+                            tempName = tempName.trim(); 
                             if(doesProfessorExist == false) {
                                 var newProfessor = {
                                     profName: tempName, 
@@ -203,8 +204,23 @@
                 
                 //Create the on-screen displays of the professors
                 for(let w = 0; w < professors.length; w++) {
-                    //console.log(professors[w]);
-                    createGUIProfessor(professors[w]);
+                    var profToInsert = null;
+                    var tempString = "zzzzzzzzzz";
+                    var index = 0;
+                    for(let x = 0+w; x < professors.length; x++) {
+                        //Compare names, making sure random number names did not get caught
+                        if(professors[x].profName < tempString && notANumber(professors[x].profName.charAt(0))) {
+                            tempString = professors[x].profName;
+                            profToInsert = professors[x];
+                            index = x;
+                        }
+                    }
+                    if(tempString != "zzzzzzzzzz") {
+                        var tempProf = professors[w]
+                        professors[w] = profToInsert;
+                        professors[index] = tempProf;
+                        createGUIProfessor(profToInsert);
+                    }
                 }
             }
 
@@ -239,11 +255,9 @@
                             break;
                         }
                     }
-                    //console.log("New start: " + start);
                 }
 
                 if(roundEndTime) {
-                    //console.log("Prev end: " + end);
                     for(let i = 0; i < times.length; i++) {
                         if(end > times[i] && end < times[i+1]) {
                             end = times[i];
@@ -254,7 +268,6 @@
                             break;
                         }
                     }
-                    //console.log("New end: " + end);
                 }
 
                 if(day == "M") {
