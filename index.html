@@ -159,7 +159,6 @@
                             //Creates a new professor object
                             var prof; 
                             if(doesProfessorExist == false) {
-                                console.log(tempName);
                                 var newProfessor = {
                                     profName: tempName, 
                                     MTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
@@ -212,19 +211,16 @@
                         var capName = professors[x].profName.toUpperCase();
                         //Compare names, making sure random number names did not get caught
                         if(capName < tempString && notANumber(professors[x].profName.charAt(0))) {
-                            console.log("Index of prof: " + x + "   " + professors[x].profName);
                             tempString = professors[x].profName.toUpperCase();
                             profToInsert = professors[x];
                             index = x;
                         }
                     }
                     if(tempString != "ZZZZZZZZZZZZ") {
-                        console.log("P: " + profToInsert.profName);
                         var tempProf = professors[w]
                         professors[w] = profToInsert;
                         professors[index] = tempProf;
                         createGUIProfessor(profToInsert);
-                        console.log(professors[w].profName + "   " + professors[index].profName)
                     }
                 }
             }
@@ -248,7 +244,6 @@
 
                 //We will have to round, find the index that is the next highest up
                 if(roundStartTime) {
-                    //console.log("Prev start: " + start);
                     for(let i = 0; i < times.length; i++) {
                         if(start > times[i] && start < times[i+1]) {
                             start = times[i];
