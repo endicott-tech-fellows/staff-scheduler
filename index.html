@@ -148,17 +148,18 @@
                             
                             //Figure out if this professor exists already
                             var doesProfessorExist = false;
+                            tempName = tempName.trim();
                             for(let k = 0; k < professors.length; k++) {
-                                if(professors[k].profName === tempName) {
+                                if(professors[k].profName == tempName && notANumber(tempName)) {
                                     doesProfessorExist = true;
                                     break;
                                 }
                             }
 
                             //Creates a new professor object
-                            var prof;
-                            tempName = tempName.trim(); 
+                            var prof; 
                             if(doesProfessorExist == false) {
+                                console.log(tempName);
                                 var newProfessor = {
                                     profName: tempName, 
                                     MTimes: [700, 715, 730, 745, 800, 815, 830, 845, 900, 915, 930, 945, 1000, 1015, 1030, 1045, 1100, 1115, 1130, 1145, 1200, 1215, 1230, 1245, 100, 115, 130, 145, 200, 215,
@@ -205,21 +206,25 @@
                 //Create the on-screen displays of the professors
                 for(let w = 0; w < professors.length; w++) {
                     var profToInsert = null;
-                    var tempString = "zzzzzzzzzz";
+                    var tempString = "ZZZZZZZZZZZZ";
                     var index = 0;
                     for(let x = 0+w; x < professors.length; x++) {
+                        var capName = professors[x].profName.toUpperCase();
                         //Compare names, making sure random number names did not get caught
-                        if(professors[x].profName < tempString && notANumber(professors[x].profName.charAt(0))) {
-                            tempString = professors[x].profName;
+                        if(capName < tempString && notANumber(professors[x].profName.charAt(0))) {
+                            console.log("Index of prof: " + x + "   " + professors[x].profName);
+                            tempString = professors[x].profName.toUpperCase();
                             profToInsert = professors[x];
                             index = x;
                         }
                     }
-                    if(tempString != "zzzzzzzzzz") {
+                    if(tempString != "ZZZZZZZZZZZZ") {
+                        console.log("P: " + profToInsert.profName);
                         var tempProf = professors[w]
                         professors[w] = profToInsert;
                         professors[index] = tempProf;
                         createGUIProfessor(profToInsert);
+                        console.log(professors[w].profName + "   " + professors[index].profName)
                     }
                 }
             }
